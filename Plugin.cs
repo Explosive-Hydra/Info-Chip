@@ -17,8 +17,8 @@ public class Plugin : BaseUnityPlugin
     public void Awake()
     {
         Logger = base.Logger;
+        
         _harmony.PatchAll();
-
-        Logger.LogInfo("Info Chip loaded!");
+        ModLocale.Initialize(Logger);
     }
 }
