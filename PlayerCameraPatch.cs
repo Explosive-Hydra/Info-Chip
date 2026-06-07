@@ -130,13 +130,13 @@ public static class PlayerCameraPatch
 
             var blockLines = new List<string>();
 
-            // 渲染每种材料（去重后）
+            // 渲染每种材料（去重后），约束条件内联在名称后面
             foreach (var g in grouped)
             {
                 var ri = g.Item;
                 int count = g.Count;
 
-                // 材料名称行
+                // 材料名称
                 string nameLine;
                 if (!ri.specific)
                 {
@@ -154,31 +154,30 @@ public static class PlayerCameraPatch
                         : global::Locale.GetItem(ri.specificId);
                 }
 
-                nameLine = count > 1
-                    ? $"  - {nameLine} x{count}"
-                    : $"  - {nameLine}";
-                blockLines.Add(nameLine);
+                // 数量后缀
+                if (count > 1)
+                    nameLine += $" x{count}";
 
-                // 详细约束条件
+                // 内联约束条件
+                var constraints = new List<string>();
+
                 if (ri.isLiquid)
                 {
                     switch (ri.specific)
                     {
                         case false when ri.quality != null:
                         {
-                            string qLine = global::Locale.GetOther("craftliquidquality")
+                            string q = global::Locale.GetOther("craftliquidquality")
                                 .Replace("<1>", ri.quality.amount.ToString("0.#"))
                                 .Replace("<2>", ri.quality.LocaleName);
-                            // qLine = "  - " + qLine;
-                            blockLines.Add(qLine);
+                            constraints.Add(q);
                             break;
                         }
                         case true when ri.minimumCondition > 0f:
                         {
-                            string mlLine = global::Locale.GetOther("craftml")
+                            string m = global::Locale.GetOther("craftml")
                                 .Replace("<>", ri.minimumCondition.ToString("0.#"));
-                            mlLine = "    " + mlLine;
-                            blockLines.Add(mlLine);
+                            constraints.Add(m);
                             break;
                         }
                     }
@@ -187,11 +186,10 @@ public static class PlayerCameraPatch
                 {
                     if (!ri.specific && ri.quality != null)
                     {
-                        string qLine = global::Locale.GetOther("craftitemquality")
+                        string q = global::Locale.GetOther("craftitemquality")
                             .Replace("<1>", ri.quality.amount.ToString("0.#"))
                             .Replace("<2>", ri.quality.LocaleName);
-                        qLine = "    " + qLine;
-                        blockLines.Add(qLine);
+                        constraints.Add(q);
 
                         if (Recipes.QualityExamples != null)
                         {
@@ -201,25 +199,29 @@ public static class PlayerCameraPatch
                                     Math.Abs(kvp.Key.amount - ri.quality.amount) < 0.001f);
                             if (example.Value != null)
                             {
-                                string exLine = global::Locale.GetOther("craftexample")
+                                string ex = global::Locale.GetOther("craftexample")
                                     .Replace("<>", global::Locale.GetItem(example.Value));
-                                exLine = "    " + exLine;
-                                blockLines.Add(exLine);
+                                constraints.Add(ex);
                             }
                         }
                     }
 
-                    // 材料耐久
-                    if (!(ri.minimumCondition > 0f)) continue;
-                    string condLine = global::Locale.GetOther("craftcondition")
-                        .Replace("<>",
-                            PlayerCamera.ConditionToColorCode(ri.minimumCondition) +
-                            (ri.minimumCondition * 100f).ToString("0.#") +
-                            "</color>"
-                        );
-                    condLine = "    " + condLine;
-                    blockLines.Add(condLine);
+                    if (ri.minimumCondition > 0f)
+                    {
+                        string c = global::Locale.GetOther("craftcondition")
+                            .Replace("<>",
+                                PlayerCamera.ConditionToColorCode(ri.minimumCondition) +
+                                (ri.minimumCondition * 100f).ToString("0.#") +
+                                "</color>"
+                            );
+                        constraints.Add(c);
+                    }
                 }
+
+                if (constraints.Count > 0)
+                    nameLine += " " + string.Join(" ", constraints);
+
+                blockLines.Add($"  - {nameLine}");
             }
 
             if (blockLines.Count <= 0) continue;
