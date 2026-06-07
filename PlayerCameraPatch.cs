@@ -1,6 +1,7 @@
-using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using HarmonyLib;
 using MossLib.Tool;
 using UnityEngine;
 
@@ -46,18 +47,10 @@ public static class PlayerCameraPatch
             result += "\n\n";
         }
         
-        if (HasRecipe(item.id))
+        string recipeInfo = BuildRecipeString(item.id);
+        if (!string.IsNullOrEmpty(recipeInfo))
         {
-            var recipes = GetRecipesByProduct(item.id);
-            Plugin.Logger.LogInfo(recipes);
-            Plugin.Logger.LogInfo(recipes.Count);
-            // if (recipes == null || !recipes.Any())
-            // {
-            //     return null;
-            // }
-            //
-            // string recipe = string.Join(", ", recipes);
-            // result += recipe + "\n\n";
+            result += recipeInfo + "\n\n";
         }
         
         // 直接使用
@@ -72,27 +65,131 @@ public static class PlayerCameraPatch
             : RichText.Red("X  " + Locale("info.usable_on_limb.false"));
         result += "\n";
 
-        // 持续
+        // 自动攻击
         result += info.autoAttack
-            ? Locale("info.auto_attack")
+            ? Locale("info.auto_attack") + "\n"
             : null;
-        result += "\n";
 
-        // 持续
+        // 仅限左键
         result += info.usableWithLMB
-            ? Locale("info.usable_with_lrb")
+            ? Locale("info.usable_with_lrb") + "\n"
             : null;
-        result += "\n";
 
         // 无视抑郁
         result += info.ignoreDepression
-            ? RichText.Color(Locale("info.ignore_depression"), "#FFFB91")
+            ? RichText.Color(Locale("info.ignore_depression"), "#FFFB91") + "\n"
             : null;
-        result += "\n";
 
         return string.IsNullOrEmpty(result.Trim())
             ? null
             : result.TrimEnd('\n');
+    }
+
+    private static string BuildRecipeString(string itemId)
+    {
+        var recipes = GetRecipesByProduct(itemId);
+        if (recipes == null || recipes.Count == 0)
+            return null;
+
+        var recipeBlocks = new List<string>();
+
+        foreach (var recipe in recipes)
+        {
+            if (recipe?.items == null || recipe.items.Count == 0)
+                continue;
+
+            var ingredientLines = new List<string>();
+
+            foreach (var ri in recipe.items.Where(ri => ri != null))
+            {
+                // Line 1: 材料名称
+                string nameLine;
+                if (!ri.specific)
+                {
+                    // 非特定材料 - 使用通用描述
+                    if (ri.isLiquid)
+                        nameLine = global::Locale.GetOther("craftanyliquid");
+                    else if (ri.quality is { id: "hammering" or "cutting" })
+                        nameLine = global::Locale.GetOther("craftanytool");
+                    else
+                        nameLine = global::Locale.GetOther("craftanyitem");
+                }
+                else
+                {
+                    // 特定材料 - 显示具体名称
+                    nameLine = ri.isLiquid
+                        ? global::Locale.GetOther(ri.specificId)
+                        : global::Locale.GetItem(ri.specificId);
+                }
+                ingredientLines.Add(nameLine);
+
+                // Line 2+: 详细约束条件
+                if (ri.isLiquid)
+                {
+                    switch (ri.specific)
+                    {
+                        case false when ri.quality != null:
+                        {
+                            // 非特定液体: 质量要求
+                            string qLine = global::Locale.GetOther("craftliquidquality")
+                                .Replace("<1>", ri.quality.amount.ToString("0.#"))
+                                .Replace("<2>", ri.quality.LocaleName);
+                            ingredientLines.Add(qLine);
+                            break;
+                        }
+                        case true when ri.minimumCondition > 0f:
+                        {
+                            // 特定液体: 最低容量
+                            string mlLine = global::Locale.GetOther("craftml")
+                                .Replace("<>", ri.minimumCondition.ToString("0.#"));
+                            ingredientLines.Add(mlLine);
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    if (!ri.specific && ri.quality != null)
+                    {
+                        // 非特定固体: 质量要求
+                        string qLine = global::Locale.GetOther("craftitemquality")
+                            .Replace("<1>", ri.quality.amount.ToString("0.#"))
+                            .Replace("<2>", ri.quality.LocaleName);
+                        ingredientLines.Add(qLine);
+
+                        // 参考示例
+                        if (Recipes.QualityExamples != null)
+                        {
+                            var example = Recipes.QualityExamples
+                                .FirstOrDefault(kvp =>
+                                    kvp.Key.id == ri.quality.id &&
+                                    Math.Abs(kvp.Key.amount - ri.quality.amount) < 0.001f);
+                            if (example.Value != null)
+                            {
+                                string exLine = global::Locale.GetOther("craftexample")
+                                    .Replace("<>", global::Locale.GetItem(example.Value));
+                                ingredientLines.Add(exLine);
+                            }
+                        }
+                    }
+
+                    if (!(ri.minimumCondition > 0f)) continue;
+                    // 耐久度要求
+                    string condLine = global::Locale.GetOther("craftcondition")
+                        .Replace("<>", (ri.minimumCondition * 100f).ToString("0.#"));
+                    ingredientLines.Add(condLine);
+                }
+            }
+
+            if (ingredientLines.Count <= 0) continue;
+
+            string prefix = recipe.isRepair ? "[修复] " : "";
+            recipeBlocks.Add(prefix + string.Join("\n", ingredientLines));
+        }
+
+        return recipeBlocks.Count > 0
+            ? "■ " + Locale("info.recipe") + "\n" + string.Join("\n\n", recipeBlocks)
+            : null;
     }
 
     private static bool HasRecipe(string productId)
@@ -100,10 +197,27 @@ public static class PlayerCameraPatch
         return ProductToRecipes.ContainsKey(productId);
     }
     
+    private static void EnsureRecipeLookup()
+    {
+        if (ProductToRecipes.Count > 0)
+            return;
+        if (Recipes.recipes == null || Recipes.recipes.Count == 0)
+            return;
+        foreach (var recipe in Recipes.recipes)
+        {
+            if (recipe?.result == null || string.IsNullOrEmpty(recipe.result.id))
+                continue;
+            string pid = recipe.result.id;
+            if (!ProductToRecipes.ContainsKey(pid))
+                ProductToRecipes[pid] = [];
+            ProductToRecipes[pid].Add(recipe);
+        }
+    }
     private static List<Recipe> GetRecipesByProduct(string productId)
     {
-	    ProductToRecipes.TryGetValue(productId, out var list);
-	    return list ?? [];
+        EnsureRecipeLookup();
+        ProductToRecipes.TryGetValue(productId, out var list);
+        return list ?? [];
     }
 
     private static string Locale(string key, params object[] args)
