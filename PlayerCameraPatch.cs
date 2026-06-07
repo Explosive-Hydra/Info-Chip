@@ -23,8 +23,9 @@ public static class PlayerCameraPatch
             return;
 
         string description = __result.Item2;
-        string extraInfo = $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.shift_to_expand.down")}</i></color>\n" +
-                           BuildTechnicalInfo(item);
+        string extraInfo =
+            $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.shift_to_expand.down")}</i></color>\n" +
+            BuildTechnicalInfo(item);
 
         if (string.IsNullOrEmpty(extraInfo)) return;
         if (string.IsNullOrEmpty(description))
@@ -36,27 +37,29 @@ public static class PlayerCameraPatch
     private static string BuildTechnicalInfo(Item item)
     {
         ItemInfo info = item.Stats;
-        bool ctrlDown = Input.GetKey(KeyCode.LeftControl) 
-                    || Input.GetKey(KeyCode.RightControl);
+        bool ctrlDown = Input.GetKey(KeyCode.LeftControl)
+                        || Input.GetKey(KeyCode.RightControl);
         if (info == null)
             return null;
 
         string result = "";
-        
+
         if (ModLocale.HasLocaleKey(LocaleKeyPre + item.id))
         {
             result += "\n";
             result += Locale(item.id);
             result += "\n\n";
         }
-        
+
         if (!ctrlDown)
-            result += $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.ctrl_to_expand.up")}</i></color>\n";
+            result +=
+                $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.ctrl_to_expand.up")}</i></color>\n";
         else
         {
-            result += $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.ctrl_to_expand.down")}</i></color>\n";
+            result +=
+                $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.ctrl_to_expand.down")}</i></color>\n";
         }
-        
+
         string recipeInfo = BuildRecipeString(item.id);
         if (ctrlDown
             || string.IsNullOrEmpty(recipeInfo))
@@ -90,7 +93,7 @@ public static class PlayerCameraPatch
         result += info.ignoreDepression
             ? RichText.Color(Locale("info.ignore_depression"), "#FFFB91") + "\n"
             : null;
-        
+
         return string.IsNullOrEmpty(result.Trim())
             ? null
             : result.TrimEnd('\n');
@@ -166,7 +169,7 @@ public static class PlayerCameraPatch
                             string qLine = global::Locale.GetOther("craftliquidquality")
                                 .Replace("<1>", ri.quality.amount.ToString("0.#"))
                                 .Replace("<2>", ri.quality.LocaleName);
-                            qLine = "    " + qLine;
+                            // qLine = "  - " + qLine;
                             blockLines.Add(qLine);
                             break;
                         }
@@ -206,9 +209,14 @@ public static class PlayerCameraPatch
                         }
                     }
 
+                    // 材料耐久
                     if (!(ri.minimumCondition > 0f)) continue;
                     string condLine = global::Locale.GetOther("craftcondition")
-                        .Replace("<>", (ri.minimumCondition * 100f).ToString("0.#"));
+                        .Replace("<>",
+                            PlayerCamera.ConditionToColorCode(ri.minimumCondition) +
+                            (ri.minimumCondition * 100f).ToString("0.#") +
+                            "</color>"
+                        );
                     condLine = "    " + condLine;
                     blockLines.Add(condLine);
                 }
@@ -220,16 +228,11 @@ public static class PlayerCameraPatch
         }
 
         return recipeBlocks.Count > 0
-            ? RichText.White("\n" + 
-                             Locale("info.recipe") + 
-                             "\n" + 
-                             string.Join("\n\n", recipeBlocks))
+            ? RichText.White("\n" +
+                             Locale("info.recipe") +
+                             "\n" +
+                             string.Join("\n", recipeBlocks))
             : null;
-    }
-
-    private static bool HasRecipe(string productId)
-    {
-        return ProductToRecipes.ContainsKey(productId);
     }
 
     private static void EnsureRecipeLookup()
