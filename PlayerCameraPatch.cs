@@ -17,17 +17,21 @@ public static class PlayerCameraPatch
     [HarmonyPostfix]
     public static void Postfix(Item item, ref ValueTuple<string, string> __result)
     {
-        if (item == null ||
-            item.Stats?.rec is not { recognizable: true } ||
-            !Input.GetKey(KeyBinds.GetBind("expanddesc")))
+        if (item == null || item.Stats?.rec is not { recognizable: true })
+            return;
+
+        // Shift 没按住时原版显示"按住Shift展开"，不干涉
+        if (!Input.GetKey(KeyBinds.GetBind("expanddesc")))
             return;
 
         string description = __result.Item2;
-        string extraInfo =
-            $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.shift_to_expand.down")}</i></color>\n" +
-            BuildTechnicalInfo(item);
-
+        string extraInfo = BuildTechnicalInfo(item);
         if (string.IsNullOrEmpty(extraInfo)) return;
+
+        // Shift 按住时原版"按住Shift展开"消失，加上"松开Shift"替代
+        string hint = $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.shift_to_expand.down")}</i></color>\n";
+        extraInfo = hint + extraInfo;
+
         if (string.IsNullOrEmpty(description))
             __result.Item2 = extraInfo;
         else if (description.IndexOf(extraInfo, StringComparison.OrdinalIgnoreCase) < 0)
@@ -37,13 +41,15 @@ public static class PlayerCameraPatch
     private static string BuildTechnicalInfo(Item item)
     {
         ItemInfo info = item.Stats;
-        bool ctrlDown = Input.GetKey(KeyCode.LeftControl)
-                        || Input.GetKey(KeyCode.RightControl);
         if (info == null)
             return null;
 
+        bool needCtrl = Plugin.CtrlToExpand.Value;
+        bool ctrlHeld = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+
         string result = "";
 
+        // 物品专属描述
         if (ModLocale.HasLocaleKey(LocaleKeyPre + item.id))
         {
             result += "\n";
@@ -51,45 +57,40 @@ public static class PlayerCameraPatch
             result += "\n\n";
         }
 
-        if (!ctrlDown)
-            result +=
-                $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.ctrl_to_expand.up")}</i></color>\n";
-        else
-        {
-            result +=
-                $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.ctrl_to_expand.down")}</i></color>\n";
-        }
-
+        // Ctrl 提示行 + 配方（二级展开）
         string recipeInfo = BuildRecipeString(item.id);
-        if (ctrlDown
-            || string.IsNullOrEmpty(recipeInfo))
+        bool showRecipe = !needCtrl || ctrlHeld;
+
+        if (needCtrl)
         {
-            result += recipeInfo + "\n\n";
+            string ctrlHint = ctrlHeld
+                ? ModLocale.GetFormat("key.ctrl_to_expand.down")   // "松开Ctrl折叠更多信息"
+                : ModLocale.GetFormat("key.ctrl_to_expand.up");    // "按住Ctrl展开更多信息"
+            result += $"<color=#a2e8af><sprite index=2 tint=1><i>{ctrlHint}</i></color>\n";
         }
 
-        // 直接使用
+        if (showRecipe && !string.IsNullOrEmpty(recipeInfo))
+            result += recipeInfo + "\n\n";
+
+        // 技术标志（始终显示）
         result += info.usable
             ? RichText.Green("✓ " + Locale("info.usable.true"))
             : RichText.Red("X  " + Locale("info.usable.false"));
         result += "\n";
 
-        // 肢体使用
         result += info.usableOnLimb
             ? RichText.Green("✓ " + Locale("info.usable_on_limb.true"))
             : RichText.Red("X  " + Locale("info.usable_on_limb.false"));
         result += "\n";
 
-        // 自动攻击
         result += info.autoAttack
             ? Locale("info.auto_attack") + "\n"
             : null;
 
-        // 仅限左键
         result += info.usableWithLMB
             ? Locale("info.usable_with_lrb") + "\n"
             : null;
 
-        // 无视抑郁
         result += info.ignoreDepression
             ? RichText.Color(Locale("info.ignore_depression"), "#FFFB91") + "\n"
             : null;

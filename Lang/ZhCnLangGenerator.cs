@@ -1,5 +1,4 @@
 ﻿using MossLib.Base;
-using MossLib.Constant;
 
 namespace InfoChip.Lang;
 
@@ -17,11 +16,11 @@ public class ZhCnLangGenerator : ModLangGenBase
         Add("hover.info.usable_with_lrb", "只能左键使用");
         Add("hover.info.ignore_depression", "无视抑郁状态");
         Add("hover.info.recipe", "合成配方: ");
-        Add($"item.{Items._9MmRound}", "⑨mm子弹");
-        Add($"hover.{Items._9MmRound}", "⑨毫米子弹");
         
         Add("key.shift_to_expand.down", "松开Shift折叠");
         Add("key.ctrl_to_expand.up", "按住Ctrl展开更多信息");
         Add("key.ctrl_to_expand.down", "松开Ctrl折叠更多信息");
+        
+        Add("config.ctrl_to_expand.description", "按下Ctrl才显示更多信息");
     }
 }
