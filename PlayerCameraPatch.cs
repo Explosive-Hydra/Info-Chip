@@ -11,7 +11,7 @@ namespace InfoChip;
 public static class PlayerCameraPatch
 {
     private const string LocaleKeyPre = "hover.";
-    public static Dictionary<string, List<Recipe>> ProductToRecipes = new();
+    private static readonly Dictionary<string, List<Recipe>> ProductToRecipes = new();
 
     [HarmonyPatch("ItemHoverDescription")]
     [HarmonyPostfix]
@@ -23,7 +23,8 @@ public static class PlayerCameraPatch
             return;
 
         string description = __result.Item2;
-        string extraInfo = BuildTechnicalInfo(item);
+        string extraInfo = $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.shift_to_expand.down")}</i></color>\n" +
+                           BuildTechnicalInfo(item);
 
         if (string.IsNullOrEmpty(extraInfo)) return;
         if (string.IsNullOrEmpty(description))
@@ -35,20 +36,30 @@ public static class PlayerCameraPatch
     private static string BuildTechnicalInfo(Item item)
     {
         ItemInfo info = item.Stats;
+        bool ctrlDown = Input.GetKey(KeyCode.LeftControl) 
+                    || Input.GetKey(KeyCode.RightControl);
         if (info == null)
             return null;
 
         string result = "";
-
+        
         if (ModLocale.HasLocaleKey(LocaleKeyPre + item.id))
         {
             result += "\n";
             result += Locale(item.id);
             result += "\n\n";
         }
-
+        
+        if (!ctrlDown)
+            result += $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.ctrl_to_expand.up")}</i></color>\n";
+        else
+        {
+            result += $"<color=#a2e8af><sprite index=2 tint=1><i>{ModLocale.GetFormat("key.ctrl_to_expand.down")}</i></color>\n";
+        }
+        
         string recipeInfo = BuildRecipeString(item.id);
-        if (!string.IsNullOrEmpty(recipeInfo))
+        if (ctrlDown
+            || string.IsNullOrEmpty(recipeInfo))
         {
             result += recipeInfo + "\n\n";
         }
@@ -79,7 +90,7 @@ public static class PlayerCameraPatch
         result += info.ignoreDepression
             ? RichText.Color(Locale("info.ignore_depression"), "#FFFB91") + "\n"
             : null;
-
+        
         return string.IsNullOrEmpty(result.Trim())
             ? null
             : result.TrimEnd('\n');
