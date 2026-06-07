@@ -12,7 +12,7 @@ public static class PlayerCameraPatch
 {
     private const string LocaleKeyPre = "hover.";
     public static Dictionary<string, List<Recipe>> ProductToRecipes = new();
-    
+
     [HarmonyPatch("ItemHoverDescription")]
     [HarmonyPostfix]
     public static void Postfix(Item item, ref ValueTuple<string, string> __result)
@@ -46,13 +46,13 @@ public static class PlayerCameraPatch
             result += Locale(item.id);
             result += "\n\n";
         }
-        
+
         string recipeInfo = BuildRecipeString(item.id);
         if (!string.IsNullOrEmpty(recipeInfo))
         {
             result += recipeInfo + "\n\n";
         }
-        
+
         // 直接使用
         result += info.usable
             ? RichText.Green("✓ " + Locale("info.usable.true"))
@@ -98,15 +98,34 @@ public static class PlayerCameraPatch
             if (recipe?.items == null || recipe.items.Count == 0)
                 continue;
 
-            var ingredientLines = new List<string>();
+            // 合并相同材料
+            var grouped = recipe.items
+                .Where(ri => ri != null)
+                .GroupBy(ri => new
+                {
+                    ri.specific,
+                    ri.specificId,
+                    ri.isLiquid,
+                    qualityId = ri.quality?.id,
+                    qualityAmount = Math.Round(ri.quality?.amount ?? 0f, 4),
+                    ri.minimumCondition,
+                    ri.destroyItem
+                })
+                .Select(g => new { Item = g.First(), Count = g.Count() })
+                .ToList();
 
-            foreach (var ri in recipe.items.Where(ri => ri != null))
+            var blockLines = new List<string>();
+
+            // 渲染每种材料（去重后）
+            foreach (var g in grouped)
             {
-                // Line 1: 材料名称
+                var ri = g.Item;
+                int count = g.Count;
+
+                // 材料名称行
                 string nameLine;
                 if (!ri.specific)
                 {
-                    // 非特定材料 - 使用通用描述
                     if (ri.isLiquid)
                         nameLine = global::Locale.GetOther("craftanyliquid");
                     else if (ri.quality is { id: "hammering" or "cutting" })
@@ -116,33 +135,36 @@ public static class PlayerCameraPatch
                 }
                 else
                 {
-                    // 特定材料 - 显示具体名称
                     nameLine = ri.isLiquid
                         ? global::Locale.GetOther(ri.specificId)
                         : global::Locale.GetItem(ri.specificId);
                 }
-                ingredientLines.Add(nameLine);
 
-                // Line 2+: 详细约束条件
+                nameLine = count > 1 
+                    ? $"  - {nameLine} x{count}" 
+                    : $"  - {nameLine}";
+                blockLines.Add(nameLine);
+
+                // 详细约束条件
                 if (ri.isLiquid)
                 {
                     switch (ri.specific)
                     {
                         case false when ri.quality != null:
                         {
-                            // 非特定液体: 质量要求
                             string qLine = global::Locale.GetOther("craftliquidquality")
                                 .Replace("<1>", ri.quality.amount.ToString("0.#"))
                                 .Replace("<2>", ri.quality.LocaleName);
-                            ingredientLines.Add(qLine);
+                            qLine = "    " + qLine;
+                            blockLines.Add(qLine);
                             break;
                         }
                         case true when ri.minimumCondition > 0f:
                         {
-                            // 特定液体: 最低容量
                             string mlLine = global::Locale.GetOther("craftml")
                                 .Replace("<>", ri.minimumCondition.ToString("0.#"));
-                            ingredientLines.Add(mlLine);
+                            mlLine = "    " + mlLine;
+                            blockLines.Add(mlLine);
                             break;
                         }
                     }
@@ -151,13 +173,12 @@ public static class PlayerCameraPatch
                 {
                     if (!ri.specific && ri.quality != null)
                     {
-                        // 非特定固体: 质量要求
                         string qLine = global::Locale.GetOther("craftitemquality")
                             .Replace("<1>", ri.quality.amount.ToString("0.#"))
                             .Replace("<2>", ri.quality.LocaleName);
-                        ingredientLines.Add(qLine);
+                        qLine = "    " + qLine;
+                        blockLines.Add(qLine);
 
-                        // 参考示例
                         if (Recipes.QualityExamples != null)
                         {
                             var example = Recipes.QualityExamples
@@ -168,27 +189,27 @@ public static class PlayerCameraPatch
                             {
                                 string exLine = global::Locale.GetOther("craftexample")
                                     .Replace("<>", global::Locale.GetItem(example.Value));
-                                ingredientLines.Add(exLine);
+                                exLine = "    " + exLine;
+                                blockLines.Add(exLine);
                             }
                         }
                     }
 
                     if (!(ri.minimumCondition > 0f)) continue;
-                    // 耐久度要求
                     string condLine = global::Locale.GetOther("craftcondition")
                         .Replace("<>", (ri.minimumCondition * 100f).ToString("0.#"));
-                    ingredientLines.Add(condLine);
+                    condLine = "    " + condLine;
+                    blockLines.Add(condLine);
                 }
             }
 
-            if (ingredientLines.Count <= 0) continue;
+            if (blockLines.Count <= 0) continue;
 
-            string prefix = recipe.isRepair ? "[修复] " : "";
-            recipeBlocks.Add(prefix + string.Join("\n", ingredientLines));
+            recipeBlocks.Add(string.Join("\n", blockLines));
         }
 
         return recipeBlocks.Count > 0
-            ? "■ " + Locale("info.recipe") + "\n" + string.Join("\n\n", recipeBlocks)
+            ? "\n" + Locale("info.recipe") + "\n" + string.Join("\n\n", recipeBlocks)
             : null;
     }
 
@@ -196,7 +217,7 @@ public static class PlayerCameraPatch
     {
         return ProductToRecipes.ContainsKey(productId);
     }
-    
+
     private static void EnsureRecipeLookup()
     {
         if (ProductToRecipes.Count > 0)
@@ -213,6 +234,7 @@ public static class PlayerCameraPatch
             ProductToRecipes[pid].Add(recipe);
         }
     }
+
     private static List<Recipe> GetRecipesByProduct(string productId)
     {
         EnsureRecipeLookup();
