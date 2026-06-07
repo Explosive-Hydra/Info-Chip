@@ -37,7 +37,7 @@ public static class PlayerCameraPatch
 
         string result = "";
 
-        if (ModLocale.HasKey(LocaleKeyPre + item.id))
+        if (ModLocale.HasLocaleKey(LocaleKeyPre + item.id))
         {
             result += Locale(item.id);
             result += "\n";

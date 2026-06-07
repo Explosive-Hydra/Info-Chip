@@ -26,12 +26,9 @@ public class ModLocale : ModLocaleBase
         return _instance?.GetString(key) ?? $"[{key}]";
     }
 
-    /// <summary>
-    /// 检查翻译键是否存在（不输出错误日志）。
-    /// 应优先使用此方法判断后再调用 Get/GetFormat。
-    /// </summary>
     public static bool HasLocaleKey(string key)
     {
-        return _instance != null && _instance.HasKey(key);
+        return _instance != null 
+               && _instance.HasKey(key);
     }
 }

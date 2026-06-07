@@ -39,7 +39,7 @@ public static class ItemPatch
 
         string result = "";
         
-        if (ModLocale.HasKey(LocaleKeyPre + id))
+        if (ModLocale.HasLocaleKey(LocaleKeyPre + id))
         {
             result += Locale(id);
             result += "\n";
