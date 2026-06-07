@@ -8,6 +8,8 @@ namespace InfoChip;
 [HarmonyPatch(typeof(Item))]
 public static class ItemPatch
 {
+    private const string LocaleKeyPre = "item.";
+
     [HarmonyPatch("SetupItems")]
     [HarmonyPostfix]
     public static void SetupItemsPostfix()
@@ -23,19 +25,25 @@ public static class ItemPatch
 
         foreach (var item in query)
         {
-            string extra = BuildExtraInfo(item.itemInfo);
+            string extra = BuildExtraInfo(item.itemId, item.itemInfo);
             if (!string.IsNullOrEmpty(extra))
                 item.itemInfo.description = AppendIfMissing(
                     item.itemInfo.description ?? "", extra);
         }
     }
 
-    private static string BuildExtraInfo(ItemInfo info)
+    private static string BuildExtraInfo(string id, ItemInfo info)
     {
         if (info == null)
             return null;
-        
+
         string result = "";
+        
+        if (ModLocale.HasKey(LocaleKeyPre + id))
+        {
+            result += Locale(id);
+            result += "\n";
+        }
         
         return string.IsNullOrEmpty(result.Trim())
             ? null
@@ -53,4 +61,10 @@ public static class ItemPatch
             ? addition
             : $"{current.TrimEnd()}\n\n{addition}";
     }
+    
+    private static string Locale(string key, params object[] args)
+    {
+        return ModLocale.GetFormat($"{LocaleKeyPre}{key}", args);
+    }
+    
 }

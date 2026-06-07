@@ -8,6 +8,8 @@ namespace InfoChip;
 [HarmonyPatch(typeof(PlayerCamera))]
 public static class PlayerCameraPatch
 {
+    private const string LocaleKeyPre = "hover.";
+    
     [HarmonyPatch("ItemHoverDescription")]
     [HarmonyPostfix]
     public static void Postfix(Item item, ref ValueTuple<string, string> __result)
@@ -20,13 +22,11 @@ public static class PlayerCameraPatch
         string description = __result.Item2;
         string extraInfo = BuildTechnicalInfo(item);
 
-        if (!string.IsNullOrEmpty(extraInfo))
-        {
-            if (string.IsNullOrEmpty(description))
-                __result.Item2 = extraInfo;
-            else if (description.IndexOf(extraInfo, StringComparison.OrdinalIgnoreCase) < 0)
-                __result.Item2 = $"{description.TrimEnd()}\n{extraInfo}";
-        }
+        if (string.IsNullOrEmpty(extraInfo)) return;
+        if (string.IsNullOrEmpty(description))
+            __result.Item2 = extraInfo;
+        else if (description.IndexOf(extraInfo, StringComparison.OrdinalIgnoreCase) < 0)
+            __result.Item2 = $"{description.TrimEnd()}\n{extraInfo}";
     }
 
     private static string BuildTechnicalInfo(Item item)
@@ -37,33 +37,49 @@ public static class PlayerCameraPatch
 
         string result = "";
 
+        if (ModLocale.HasKey(LocaleKeyPre + item.id))
+        {
+            result += Locale(item.id);
+            result += "\n";
+        }
+        
         // 直接使用
         result += info.usable
-            ? RichText.Green("✓ 可直接使用\n")
-            : RichText.Red("X  不可直接使用\n");
+            ? RichText.Green("✓ " + Locale("info.usable.true"))
+            : RichText.Red("X  " + Locale("info.usable.false"));
+        result += "\n";
 
         // 肢体使用
         result += info.usableOnLimb
-            ? RichText.Green("✓ 可对肢体使用\n")
-            : RichText.Red("X  不可对肢体使用\n");
+            ? RichText.Green("✓ " + Locale("info.usable_on_limb.true"))
+            : RichText.Red("X  " + Locale("info.usable_on_limb.false"));
+        result += "\n";
 
         // 持续
         result += info.autoAttack
-            ? "长按时持续使用\n"
-            : "";
+            ? Locale("info.auto_attack")
+            : null;
+        result += "\n";
 
         // 持续
         result += info.usableWithLMB
-            ? "只能左键使用\n"
-            : "";
+            ? Locale("info.usable_with_lrb")
+            : null;
+        result += "\n";
 
         // 无视抑郁
         result += info.ignoreDepression
-            ? RichText.Color("无视抑郁状态\n", "#FFFB91")
+            ? RichText.Color(Locale("info.ignore_depression"), "#FFFB91")
             : null;
+        result += "\n";
 
         return string.IsNullOrEmpty(result.Trim())
             ? null
             : result.TrimEnd('\n');
+    }
+
+    private static string Locale(string key, params object[] args)
+    {
+        return ModLocale.GetFormat($"{LocaleKeyPre}{key}", args);
     }
 }
