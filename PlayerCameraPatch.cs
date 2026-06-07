@@ -140,8 +140,8 @@ public static class PlayerCameraPatch
                         : global::Locale.GetItem(ri.specificId);
                 }
 
-                nameLine = count > 1 
-                    ? $"  - {nameLine} x{count}" 
+                nameLine = count > 1
+                    ? $"  - {nameLine} x{count}"
                     : $"  - {nameLine}";
                 blockLines.Add(nameLine);
 
@@ -209,7 +209,10 @@ public static class PlayerCameraPatch
         }
 
         return recipeBlocks.Count > 0
-            ? "\n" + Locale("info.recipe") + "\n" + string.Join("\n\n", recipeBlocks)
+            ? RichText.White("\n" + 
+                             Locale("info.recipe") + 
+                             "\n" + 
+                             string.Join("\n\n", recipeBlocks))
             : null;
     }
 
