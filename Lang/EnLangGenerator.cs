@@ -15,5 +15,6 @@ public class EnLangGenerator : ModLangGenBase
         Add("hover.info.auto_attack", "Continuous use when long press");
         Add("hover.info.usable_with_lrb", "Can only be used with left click");
         Add("hover.info.ignore_depression", "Ignore depression status");
+        Add("hover.info.recipe", "Recipes: ");
     }
 }

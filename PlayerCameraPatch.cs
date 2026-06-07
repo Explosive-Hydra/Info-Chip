@@ -1,5 +1,6 @@
 using HarmonyLib;
 using System;
+using System.Collections.Generic;
 using MossLib.Tool;
 using UnityEngine;
 
@@ -9,6 +10,7 @@ namespace InfoChip;
 public static class PlayerCameraPatch
 {
     private const string LocaleKeyPre = "hover.";
+    public static Dictionary<string, List<Recipe>> ProductToRecipes = new();
     
     [HarmonyPatch("ItemHoverDescription")]
     [HarmonyPostfix]
@@ -39,8 +41,23 @@ public static class PlayerCameraPatch
 
         if (ModLocale.HasLocaleKey(LocaleKeyPre + item.id))
         {
-            result += Locale(item.id);
             result += "\n";
+            result += Locale(item.id);
+            result += "\n\n";
+        }
+        
+        if (HasRecipe(item.id))
+        {
+            var recipes = GetRecipesByProduct(item.id);
+            Plugin.Logger.LogInfo(recipes);
+            Plugin.Logger.LogInfo(recipes.Count);
+            // if (recipes == null || !recipes.Any())
+            // {
+            //     return null;
+            // }
+            //
+            // string recipe = string.Join(", ", recipes);
+            // result += recipe + "\n\n";
         }
         
         // 直接使用
@@ -76,6 +93,17 @@ public static class PlayerCameraPatch
         return string.IsNullOrEmpty(result.Trim())
             ? null
             : result.TrimEnd('\n');
+    }
+
+    private static bool HasRecipe(string productId)
+    {
+        return ProductToRecipes.ContainsKey(productId);
+    }
+    
+    private static List<Recipe> GetRecipesByProduct(string productId)
+    {
+	    ProductToRecipes.TryGetValue(productId, out var list);
+	    return list ?? [];
     }
 
     private static string Locale(string key, params object[] args)
